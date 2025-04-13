@@ -1,20 +1,658 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Calendrier de l'Avent MyHordes</title>
-  <style>
-    body { background: #1d1d1d; color: #fff; font-family: sans-serif; padding: 2em; text-align: center; }
-    .day { margin: 1em auto; padding: 1em; background: #3c1f1f; border: 1px solid #704328; width: 300px; border-radius: 10px; }
-    a { color: #ffd700; text-decoration: none; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Calendrier MyHordes</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px 20px 0;
+            background: #7e4d2a;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #main-header {
+            background: #7e4d2a;
+            color: #f0d79e;
+            text-align: center;
+            padding: 15px;
+            font-size: 1.5em;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #calendrier {
+            position: relative;
+            height: calc(100vh);
+            width: 98%;
+            margin: 5px auto 0;
+            padding: 0 5px;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .jour {
+            position: absolute;
+            background: #a93e1f;
+            color: #f0d79e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+
+        .jour:hover {
+            transform: scale(1.05);
+        }
+
+        #popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .popup-content {
+            background: #7e4d2a;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 60%;
+            max-height: 80vh;
+            text-align: center;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .popup-text {
+            white-space: pre-line;
+            line-height: 1.5;
+            margin: 10px 0;
+            word-break: break-word;
+        }
+
+        .popup-content img {
+            max-width: 80%;
+            max-height: 80%;
+            margin-bottom: 15px;
+        }
+
+        .popup-content a {
+            color: #f0d79e;
+            text-decoration: underline;
+            display: block;
+            margin-top: 10px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #f0d79e;
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        @keyframes flagWave {
+            0% {
+                transform: rotate(-30deg);
+            }
+
+            100% {
+                transform: rotate(30deg);
+            }
+        }
+
+        /* Styles pour le pierre-papier-ciseau */
+        .pfc-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .pfc-button {
+            background: #a93e1f;
+            color: #f0d79e;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .pfc-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .pfc-result {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        /* Styles pour le slot machine */
+        .slot-machine {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .slot-item {
+            object-fit: contain;
+        }
+        
+        .game-over {
+            color: #ff4d4d;
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
 </head>
+
 <body>
-  <h1>🎁 Calendrier de l'Avent MyHordes</h1>
-  <div class="day">
-    <strong>Jour 1 :</strong>
-    <a href="https://www.youtube.com/watch?v=fmC6b6_ovZY" target="_blank">Disease</a> — Merci à <strong>C4ESTUNEPIEANQUI</strong> !
-  </div>
+    <header id="main-header">
+        Vallées Sinistres de la rédemption au jour le jour
+    </header>
+    <div id="calendrier"></div>
+
+    <div id="popup">
+        <div class="popup-content">
+            <span class="close-btn" onclick="fermerPopup()">&times;</span>
+            <img id="popup-img" src="" alt="Image du jour">
+            <p id="popup-text"></p>
+            <a id="popup-link" href="" target="_blank"></a>
+        </div>
+    </div>
+
+    <script>
+        let coffreOuvert = false;
+        let lootActuel = null;
+        let peutJouerSlot = true;
+
+        const joursData = {
+            1: {
+                image: 'assets/1.gif',
+                texte: 'Les chaussures sont abusées et doivent disparaître !\nDès le début on profite cependant de cette abus pour les R4.',
+            },
+            2: {
+                image: 'assets/flag.gif',
+                texte: 'Objet mystérieux qui défini toute la stratégie de la ville... On a intérêt à le trouver rapidement',
+            },
+            3: {
+                image: 'assets/3_start.PNG',
+                texte: 'Choisis ton arme et essaye de me battre !',
+                options: {
+                    pierre: 'assets/3_pierre.PNG',
+                    papier: 'assets/3_feuille.PNG',
+                    ciseau: 'assets/3_ciseaux.PNG'
+                }
+            },
+            4: {
+                image: 'assets/4.PNG',
+                texte: 'Une petite découverte musicale aujourd\'hui : Disease, merci à C4ESTUNEPIÉANQUI pour la découverte !',
+                link: 'https://www.youtube.com/watch?v=fmC6b6_ovZY'
+            },
+            5: {
+                image: 'assets/5.PNG',
+                texte: 'Mon premier peut être supplémentaire\nMon deuxième est une préposition\nMon troisième parfume les plats\nMon quatrième est l\'inverse de sec\nMon tout est un objet très convoité par certains dans le désert...'
+            },
+            6: {
+                image: 'assets/6.PNG',
+                texte: 'Notre zoo prend rapidement forme. Merci à tous ceux qui ont participé à sa construction !',
+                link: 'https://fatamorgana.md26.eu/spy/town/5484/3'
+            },
+            7: {
+                image: 'assets/100.PNG',
+                texte: 'Cliquez sur le dé pour lancer le 100 faces !'
+            },
+            8: {
+                image: 'assets/8.png',
+                texte: 'Quel bâtiment de l\'outre monde se cache derrière cet extrait ?'
+            },
+            9: {
+                image: 'assets/9.PNG',
+                texte: 'Un ingrédient semble avoir été effacé... J\'espère pouvoir reproduire cette recette à l\'identique la saison prochaine...'
+            },
+            10: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            11: {
+                image: 'assets/empty.png',
+                texte: 'Coffre fort sécurisé - Trouvez le puis entrez le code à 4 chiffres'
+            },
+            12: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            13: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            14: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            15: {
+                image: 'assets/15.PNG',
+                texte: 'Bargouzine, plus besoin de garder 1PA pour ouvrir les portes à 23h59, elles ne se fermeront plus jamais.'
+            },
+            16: {
+                image: 'assets/16.gif',
+                texte: 'Quelqu\'un semble mendier de l\'eau un peu partout dans le village...\nEspérons qu\'une âme charitable lui offre une petite goutte, juste de quoi survivre à la nuit.'
+            },
+            17: {
+                image: 'assets/17.webp',
+                texte: 'Petit ange parti trop tôt'
+            },
+            18: {
+                image: 'assets/18.PNG',
+                texte: 'La terreur remplit toute la ville et en rend muet plus d\'un, mais est-ce la seule source de silence...'
+            },
+            19: {
+                image: 'assets/19.PNG',
+                texte: 'Quel objet se cache derrière cet extrait ?'
+            },
+            20: {
+                image: 'assets/20.PNG',
+                texte: 'J\'ai trouvé ça par terre aujourd\'hui.'
+            },
+            21: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            22: {
+                image: 'assets/item_rp_book.gif',
+                texte: 'Slot Machine - Cliquez pour jouer !',
+                items: [
+                    'assets/item_rp_book.gif',
+                    'assets/item_rp_letter.gif',
+                    'assets/item_rp_scroll.gif'
+                ]
+            },
+            23: {
+                image: 'assets/23.PNG',
+                texte: 'Annonce de la fin de saison par Dylan57 ce qui compromet les chances de légendes de la ville...\nON LÂCHE RIEN',
+                link: 'https://www.youtube.com/watch?v=tN0ipJq9nac'
+            },
+            24: {
+                image: 'assets/24.PNG',
+                texte: 'Merci à Cleme pour le trombibliothèque, une des rares animations de ce FV bien morose',
+                link: 'https://myhordes.eu/jx/forum/5497/183393/1'
+            },
+            25: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            26: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            27: {
+                image: 'assets/27.PNG',
+                texte: 'CreeperJuice sera désormais connu pour la sieste de 23h... On espère tous que celle-ci aura été très réparatrice pour lui bien que destructrice pour le reste de la ville.'
+            },
+            28: {
+                image: 'assets/28.PNG',
+                texte: 'Dois-je re-parler de Mirador en ce jour ?'
+            },
+            29: {
+                image: 'assets/29.PNG',
+                texte: 'À quel joueur cette image fait référence ?'
+            },
+            30: {
+                image: 'assets/30.PNG',
+                texte: 'Aujourd\'hui s\'est tenu un grand rassemblement mené par H214 qui a de nombreux représentants en ville. Grâce à eux nous avons eu du divertissement pendant une des nombreuses période creuses de la ville.\n Jusqu\'à ce que l\'opposition soit trop forte...'
+            },
+            31: {
+                image: 'assets/31.PNG',
+                texte: 'Une papier volante avec des traces de sang...',
+            },
+            32: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            33: {
+                image: 'assets/33.PNG',
+                texte: 'Des restes de ce qui semble être une affiche pour la réunion du début de semaine...'
+            },
+            34: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            35: {
+                image: 'assets/empty.png',
+                texte: '▒▒▒▒▒▒▒▒\n▒▒V▒▒▒▒▒\n▒▒▒▒A▒▒▒\n▒P▒▒▒▒N▒\n▒▒O▒▒▒T▒'
+            },
+            36: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            37: {
+                image: 'assets/37.PNG',
+                texte: 'Eliam essaye de prendre le contrôle... Ou plutôt de simplifier le suivi du drapeau. Merci à lui pour cette action qui aurait sans doutes été apprécié plus tôt !'
+            },
+            38: {
+                image: 'assets/38.PNG',
+                texte: 'Je ne parle pas du DDH, mais bien des haters du FM. Qu\'on leur érige une statue avec tous nos OD superflus, afin de célébrer leur déshonneur.'
+            },
+            39: {
+                image: 'assets/39.gif',
+                texte: 'Merci Eliam pour la lecture du cinéma et sa construction ce jour.'
+            },
+            40: {
+                image: 'assets/40.gif',
+                texte: 'Vous trouvez un gros coffre en métal, qu\'y a-t-il dedans ?'
+            },
+            41: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            42: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            43: {
+                image: 'assets/43.PNG',
+                texte: 'Quel chantier se cache derrière cet extrait ?'
+            },
+            44: {
+                image: 'assets/empty.png',
+                texte: '▒▒▒C▒▒▒▒▒\n▒▒▒▒▒▒R▒▒\n▒M▒▒▒▒▒▒▒\n▒▒▒▒▒▒S▒▒\n▒▒▒▒A▒▒▒▒\n▒▒▒▒▒▒▒I▒\n▒▒▒▒▒▒▒▒T'
+            },
+            45: {
+                image: 'assets/empty.png',
+                texte: 'Lors votre dernière fouille, vous n\'avez rien trouvé...'
+            },
+            46: {
+                image: 'assets/empty.png',
+                texte: 'J\'espère que ce petit calendrier vous a plu autant que j\'ai aimé le créer. J\'ai pris du plaisir à imaginer chaque case et chaque petite surprise. \nJ\'espère que vous avez gagné au moins une partie au PFC, il est réglé en mode un peu difficile !'
+            },
+        };
+
+        function genererCalendrier() {
+            const container = document.getElementById('calendrier');
+            container.innerHTML = '';
+            const grid = Array.from({ length: 16 }, () => Array(16).fill(false)); // Grille 16x16
+            const headerHeight = document.getElementById('main-header').offsetHeight + 10;
+            const containerWidth = container.offsetWidth;
+            const availableHeight = window.innerHeight - 50;
+
+            // Créer et trier les blocs par taille décroissante
+            const blocks = Array.from({ length: 46 }, (_, i) => ({
+                number: i + 1,
+                size: getRandomSize()
+            })).sort((a, b) => (b.size.w * b.size.h) - (a.size.w * a.size.h));
+
+            for (const block of blocks) {
+                const jour = document.createElement('div');
+                jour.className = 'jour';
+                jour.innerHTML = `<span>${block.number}</span>`;
+
+                const gridPos = getGridPosition(block.size.w, block.size.h, grid);
+
+                // Conversion des unités de grille en pixels
+                const cellWidth = containerWidth / 14;
+                const cellHeight = availableHeight / 14;
+
+                jour.style.width = `${block.size.w * cellWidth - 4}px`;
+                jour.style.height = `${block.size.h * cellHeight - 4}px`;
+                jour.style.left = `${gridPos.x * cellWidth + 2}px`;
+                jour.style.top = `${headerHeight + gridPos.y * cellHeight + 2}px`;
+
+                jour.onclick = () => afficherPopup(block.number);
+                container.appendChild(jour);
+            }
+        }
+
+        function getRandomSize() {
+            const sizeType = Math.random();
+            if (sizeType < 0.4) { // 40% chance 1x1
+                return { w: 1, h: 1 };
+            } else if (sizeType < 0.7) { // 30% chance 1x2 ou 2x1
+                return Math.random() < 0.5 ? { w: 1, h: 2 } : { w: 2, h: 1 };
+            } else { // 30% chance 2x2
+                return { w: 2, h: 2 };
+            }
+        }
+
+        function getGridPosition(w, h, grid) {
+            const maxX = 14 - w;
+            const maxY = 14 - h;
+            let attempts = 0;
+
+            // Augmentation des tentatives aléatoires à 500
+            while (attempts < 500) {
+                const x = Math.floor(Math.random() * maxX);
+                const y = Math.floor(Math.random() * maxY);
+
+                if (isGridAreaFree(x, y, w, h, grid)) {
+                    markGridArea(x, y, w, h, grid);
+                    return { x, y };
+                }
+                attempts++;
+            }
+
+            // Recherche systématique si échec aléatoire
+            for (let x = 0; x < maxX; x++) {
+                for (let y = 0; y < maxY; y++) {
+                    if (isGridAreaFree(x, y, w, h, grid)) {
+                        markGridArea(x, y, w, h, grid);
+                        return { x, y };
+                    }
+                }
+            }
+
+            console.error("Espace insuffisant pour placer le bloc");
+            return { x: 0, y: 0 };
+        }
+
+        function isGridAreaFree(x, y, w, h, grid) {
+            for (let i = x; i < x + w; i++) {
+                for (let j = y; j < y + h; j++) {
+                    if (grid[i][j]) return false;
+                }
+            }
+            return true;
+        }
+
+        function markGridArea(x, y, w, h, grid) {
+            for (let i = x; i < x + w; i++) {
+                for (let j = y; j < y + h; j++) {
+                    grid[i][j] = true;
+                }
+            }
+        }
+
+        function lancerDe() {
+            const resultat = Math.floor(Math.random() * 100) + 1;
+            document.getElementById('popup-text').innerHTML = `
+                Résultat du lancer : <strong>${resultat}</strong>
+            `;
+        }
+
+        function jouerPFC(choixJoueur) {
+            // L'ordinateur choisit toujours l'option qui bat le joueur
+            let choixOrdinateur;
+            switch(choixJoueur) {
+                case 'pierre': choixOrdinateur = 'papier'; break;
+                case 'papier': choixOrdinateur = 'ciseau'; break;
+                case 'ciseau': choixOrdinateur = 'pierre'; break;
+            }
+
+            // Afficher les choix
+            const resultElement = document.getElementById('pfc-result');
+            resultElement.innerHTML = `
+                Vous avez choisi: <strong>${choixJoueur}</strong><br>
+                J'ai choisi: <strong>${choixOrdinateur}</strong><br><br>
+                Résultat: <strong style="color: #ff4d4d;">Vous avez perdu !</strong>
+            `;
+
+            // Changer l'image pour montrer le choix de l'ordinateur
+            document.getElementById('popup-img').src = joursData[3].options[choixOrdinateur];
+        }
+
+        function ouvrirCoffre() {
+            if (coffreOuvert) {
+                return;
+            }
+
+            const loots = [
+                { nom: 'Coupe-coupe', image: 'assets/item_cutcut.gif' },
+                { nom: 'Tronçonneuse incomplète', image: 'assets/item_chainsaw_part.gif' },
+                { nom: 'Batteur électrique incomplet', image: 'assets/item_mixergun_part.gif' },
+                { nom: 'Tondeuse démontée', image: 'assets/item_lawn_part.gif' },
+                { nom: 'Ceinture à poche', image: 'assets/item_pocket_belt.gif' },
+                { nom: 'Dévastator incomplet', image: 'assets/item_big_pgun_part.gif' },
+                { nom: 'Aqua-Splash démonté', image: 'assets/item_watergun_opt_part.gif' },
+                { nom: 'Calibrateur PDTT Mark II', image: 'assets/item_pilegun_upkit.gif' }
+            ];
+
+            lootActuel = loots[Math.floor(Math.random() * loots.length)];
+            coffreOuvert = true;
+
+            document.getElementById('popup-img').src = lootActuel.image;
+            document.getElementById('popup-text').innerHTML = `
+                Vous avez trouvé : <strong>${lootActuel.nom}</strong>
+            `;
+        }
+
+        function ouvrirCoffreFort() {
+            const code = prompt("Entrez le code à 4 chiffres pour ouvrir le coffre fort:");
+            
+            if (code === "1234") {
+                document.getElementById('popup-text').innerHTML = `
+                    Ça y est ! Vous avez trouvé la combinaison secrète du coffre !<br>
+                    Il s'agissait de 1234...<br><br>
+                    Mais le contenu vous semble vide...<br>
+                    La prochaine fois peut-être qu'il faudra mettre un code plus sécurisé ?
+                `;
+            } else {
+                document.getElementById('popup-text').innerHTML = `
+                    Code incorrect !<br>
+                    Le coffre fort reste désespérément fermé...
+                `;
+            }
+        }
+
+        function jouerSlotMachine() {
+            if (!peutJouerSlot) {
+                return;
+            }
+
+            const items = joursData[22].items;
+            const spin = [
+                items[Math.floor(Math.random() * items.length)],
+                items[Math.floor(Math.random() * items.length)],
+                items[Math.floor(Math.random() * items.length)]
+            ];
+
+            // Afficher le résultat
+            document.getElementById('popup-img').src = spin[0];
+            
+            let resultText = '<div class="slot-machine">';
+            spin.forEach(item => {
+                resultText += `<img src="${item}" class="slot-item">`;
+            });
+            resultText += '</div>';
+
+            // Vérifier si tous les éléments sont identiques
+            if (spin[0] === spin[1] && spin[1] === spin[2]) {
+                resultText += '<div class="game-over">GAME OVER</div>';
+                peutJouerSlot = false;
+            } else {
+                resultText += 'Essayez encore !';
+            }
+
+            document.getElementById('popup-text').innerHTML = resultText;
+        }
+
+        function afficherPopup(numero) {
+            const popup = document.getElementById('popup');
+            const data = joursData[numero] || {
+                image: 'assets/placeholder.webp',
+                texte: `Contenu du jour ${numero}`
+            };
+
+            // Appliquer un style spécial pour le drapeau (jour 2)
+            const popupImg = document.getElementById('popup-img');
+            if (numero === 2) {
+                popupImg.style.animation = 'flagWave 1s infinite alternate';
+                popupImg.style.transformOrigin = 'bottom center';
+            } else {
+                popupImg.style.animation = '';
+            }
+            // Réinitialiser l'état du coffre si on ouvre un autre jour
+            if (numero !== 40 && numero !== 11) {
+                coffreOuvert = false;
+                lootActuel = null;
+            }
+
+            document.getElementById('popup-img').src = data.image;
+            if (numero === 7) {
+                document.getElementById('popup-img').onclick = lancerDe;
+                document.getElementById('popup-text').innerHTML = data.texte;
+            } else if (numero === 40) {
+                document.getElementById('popup-img').onclick = ouvrirCoffre;
+                document.getElementById('popup-text').innerHTML = data.texte.replace(/\n/g, '<br>');
+            } else if (numero === 11) {
+                document.getElementById('popup-img').onclick = ouvrirCoffreFort;
+                document.getElementById('popup-text').innerHTML = data.texte.replace(/\n/g, '<br>');
+            } else if (numero === 3) {
+                document.getElementById('popup-img').onclick = null;
+                let html = data.texte.replace(/\n/g, '<br>');
+                html += `
+                    <div class="pfc-buttons">
+                        <button class="pfc-button" onclick="jouerPFC('pierre')">Pierre</button>
+                        <button class="pfc-button" onclick="jouerPFC('papier')">Papier</button>
+                        <button class="pfc-button" onclick="jouerPFC('ciseau')">Ciseau</button>
+                    </div>
+                    <div id="pfc-result" class="pfc-result"></div>
+                `;
+                document.getElementById('popup-text').innerHTML = html;
+            } else if (numero === 22) {
+                document.getElementById('popup-img').onclick = jouerSlotMachine;
+                document.getElementById('popup-text').innerHTML = data.texte.replace(/\n/g, '<br>');
+                peutJouerSlot = true;
+            } else {
+                document.getElementById('popup-img').onclick = null;
+                document.getElementById('popup-text').innerHTML = data.texte.replace(/\n/g, '<br>');
+            }
+
+            const linkElement = document.getElementById('popup-link');
+            if (data.link) {
+                linkElement.href = data.link;
+                linkElement.textContent = 'Voir le contenu';
+            } else {
+                linkElement.href = '';
+                linkElement.textContent = '';
+            }
+
+            popup.style.display = 'flex';
+        }
+
+        function fermerPopup() {
+            document.getElementById('popup').style.display = 'none';
+        }
+
+        window.onload = genererCalendrier;
+        window.onresize = genererCalendrier;
+    </script>
 </body>
 </html>
